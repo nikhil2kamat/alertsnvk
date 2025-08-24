@@ -1,0 +1,56 @@
+name: Update alerts.json
+
+on:
+  workflow_dispatch:
+    inputs:
+      json:
+        description: 'JSON array or object with {"items":[...]} to merge into alerts.json'
+        required: true
+        type: string
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Merge input JSON into alerts.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '${{ github.event.inputs.json }}' > new.json
+          if [ -f alerts.json ]; then cp alerts.json old.json; else echo '[]' > old.json; fi
+
+          # Normalize to array
+          if jq -e 'type == "array"' new.json > /dev/null; then
+            cp new.json new_arr.json
+          else
+            jq -c '.items // []' new.json > new_arr.json
+          fi
+
+          # Merge unique by id or title+sentAt
+          jq -s '
+            def keyfn: ( .id // ( (.title // "") + "|" + (.sentAt // "") ) );
+            def to_map: map( {(keyfn): .} ) | add;
+            (.[0] | to_map) as $old
+            | (.[1] | to_map) as $new
+            | ($old + $new) | to_entries | map(.value)
+          ' old.json new_arr.json | jq . > alerts.json
+
+      - name: Commit & push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add alerts.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Update alerts.json via workflow_dispatch"
+            git push
+          fi

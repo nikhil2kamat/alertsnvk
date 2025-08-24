@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Alerts Portal (IST)</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #121a2b;
+      --muted: #7f8ca8;
+      --text: #e7ecf7;
+      --accent: #7aa2ff;
+      --accent-2: #8be9a7;
+      --danger: #ff6b81;
+      --border: #22304a;
+      --card: #0e1728;
+      --chip: #1a2440;
+      --chip-border: #2a3a5e;
+      --shadow: 0 10px 24px rgba(0,0,0,0.35);
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: linear-gradient(180deg, #0b1220 0%, #0d1526 100%);
+      color: var(--text); font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    }
+    header { position: sticky; top: 0; z-index: 5; background: rgba(14,23,40,0.85); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+    .container { max-width: 1120px; margin: 0 auto; padding: 18px; }
+    .title { display: flex; align-items: center; gap: 12px; }
+    .logo { width: 36px; height: 36px; border-radius: 8px; background: radial-gradient(circle at 30% 30%, var(--accent) 0%, #5b80ff 35%, #2f4070 70%); box-shadow: var(--shadow); }
+    h1 { margin: 0; font-size: 1.35rem; font-weight: 700; }
+    .sub { margin-top: 4px; font-size: 0.9rem; color: var(--muted); }
+    .grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
+    @media (min-width: 1000px) { .grid { grid-template-columns: 420px 1fr; } }
+    .panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; }
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 6px; }
+    input[type="text"], input[type="url"], input[type="date"], input[type="time"], input[type="number"], select, textarea {
+      width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border);
+      background: var(--card); color: var(--text); outline: none;
+    }
+    textarea { min-height: 70px; resize: vertical; }
+    .row { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--chip-border);
+      background: linear-gradient(180deg, #1b2745, #111a31); color: var(--text); cursor: pointer; transition: transform .08s ease, filter .2s ease; }
+    .btn:hover { filter: brightness(1.05); } .btn:active { transform: translateY(1px); }
+    .btn-primary { border-color: #5a78ff; background: linear-gradient(180deg, #6f8bff, #3d5bff); color: white; }
+    .btn-danger { border-color: #ff7b8e; background: linear-gradient(180deg, #ff8ea0, #ff6b81); color: white; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip { border: 1px solid var(--chip-border); background: var(--chip); padding: 6px 10px; border-radius: 999px; font-size: 0.8rem; color: #cdd6ea; cursor: pointer; }
+    .chip.active { background: #23335b; border-color: #4463a8; color: #e7efff; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .count { font-size: 0.9rem; color: var(--muted); }
+    .tiny { font-size: 0.82rem; color: var(--muted); }
+    .status { font-size: 0.85rem; color: #cfe0ff; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 12px 10px; border-bottom: 1px dashed var(--border); vertical-align: top; }
+    th { font-size: 0.8rem; color: #b8c3de; letter-spacing: .04em; text-transform: uppercase; }
+    tr:hover td { background: rgba(122,162,255,.06); }
+    .pill { display: inline-block; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--chip-border); background: #0f1a32; font-size: 0.75rem; color: #cfe0ff; }
+    .muted { color: var(--muted); font-size: 0.88rem; }
+    .link-wrap { max-width: 420px; word-wrap: break-word; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <div class="title">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1>Alerts Portal (IST)</h1>
+          <div class="sub">Company alerts (8 AM), AI/SAP (12 PM), Balance Sheet (3 PM). Auto-loads from <code>alerts.json</code> in this repo.</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" style="margin-top:16px;">
+    <div class="grid">
+      <!-- Left: Feed + Add -->
+      <section class="panel">
+        <h2 style="margin:0 0 10px 0;">Feed & Quick add</h2>
+
+        <div class="panel" style="background:#0f1629; border-color:#1b2a48; margin-bottom:14px;">
+          <h3 style="margin:0 0 10px 0; font-size:1rem;">JSON Feed</h3>
+          <div class="tiny">Using: <code id="feedLabel">alerts.json</code>. Override once with <code>?feed=&lt;URL&gt;</code> in the page URL. Auto-refresh every <span id="refreshLabel">10</span> minutes.</div>
+          <div style="display:flex; gap:8px; align-items:center; margin-top:8px;">
+            <button class="btn" id="syncNowBtn">Sync now</button>
+            <span class="status" id="feedStatus">Ready.</span>
+          </div>
+          <div class="tiny" style="margin-top:8px;">If you see 404, make sure <code>alerts.json</code> exists in this repo’s root (same folder as this page).</div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="category">Category</label>
+            <select id="category">
+              <option>Company News (8 AM)</option>
+              <option>AI/SAP (12 PM)</option>
+              <option>Balance Sheet (3 PM)</option>
+            </select>
+          </div>
+          <div>
+            <label for="companyTopic">Company / Topic (optional)</label>
+            <input id="companyTopic" type="text" placeholder="e.g., PI Industries / RAG / Current Ratio" />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="date">Date (IST)</label>
+            <input id="date" type="date" />
+          </div>
+          <div>
+            <label for="time">Time (IST)</label>
+            <input id="time" type="time" />
+          </div>
+        </div>
+        <label for="title">Title / Headline</label>
+        <input id="title" type="text" placeholder="Short headline" />
+        <label for="summary">Summary</label>
+        <textarea id="summary" placeholder="1–3 lines"></textarea>
+        <label for="link">Source Link (optional)</label>
+        <input id="link" type="url" placeholder="https://example.com/article" />
+        <div style="display:flex; gap:10px; margin-top:12px;">
+          <button class="btn btn-primary" id="addBtn">Add alert</button>
+          <button class="btn" id="exportBtn">Export JSON</button>
+          <label class="btn" for="importInput">Import JSON</label>
+          <input id="importInput" type="file" accept="application/json" style="display:none;" />
+          <button class="btn btn-danger" id="clearAllBtn">Clear All</button>
+        </div>
+      </section>
+
+      <!-- Right: Stats + Table -->
+      <section class="panel">
+        <div class="toolbar">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <h2 style="margin:0;">Your alerts</h2>
+            <span class="count" id="countLabel">0 items</span>
+          </div>
+          <input id="search" type="text" placeholder="Search title, summary, company/topic…" style="min-width:280px;" />
+        </div>
+
+        <div class="chips" id="chipBar" role="tablist">
+          <span class="chip active" data-filter="all">All</span>
+          <span class="chip" data-filter="Company News (8 AM)">Company News</span>
+          <span class="chip" data-filter="AI/SAP (12 PM)">AI/SAP</span>
+          <span class="chip" data-filter="Balance Sheet (3 PM)">Balance Sheet</span>
+        </div>
+
+        <div class="panel" style="margin-top:12px; background:#0f1629; border-color:#1b2a48;">
+          <div class="tiny">Stats: <span id="statAll">0</span> total • <span id="statComp">0</span> company • <span id="statAI">0</span> AI/SAP • <span id="statBS">0</span> balance-sheet.</div>
+          <div class="tiny">Last sync: <span id="lastSync">never</span></div>
+        </div>
+
+        <div style="overflow:auto; margin-top:12px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Category</th>
+                <th>Title & Summary</th>
+                <th>Company/Topic</th>
+                <th>Source</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+    <footer class="tiny" style="margin-top:12px;">Times shown in IST (Asia/Kolkata). Sorting is newest first.</footer>
+  </main>
+
+  <script>
+    const TZ = "Asia/Kolkata";
+    const STORAGE_KEY = "alertsDataV1";
+    const REFRESH_MINS = 10;
+
+    let data = loadData();
+    let currentFilter = "all";
+    let searchTerm = "";
+    let feedUrl = getFeedUrl();
+    let refreshTimer = null;
+
+    function loadData(){ try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : []; } catch(e){ return []; } }
+    function saveData(arr){ localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); }
+    function formatISTParts(date){
+      const d = new Intl.DateTimeFormat("en-GB", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute:"2-digit", hour12:false, timeZone:TZ })
+        .formatToParts(date).reduce((a,p)=>(a[p.type]=p.value,a),{});
+      return { y:d.year, m:d.month, d:d.day, hh:d.hour, mm:d.minute };
+    }
+    function parseISTDateTime(dateStr, timeStr){ return new Date(`${dateStr}T${timeStr||"12:00"}:00+05:30`); }
+    function escapeHtml(s){ return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
+    function getFeedUrl(){
+      const params = new URLSearchParams(location.search);
+      if (params.has("feed")) return params.get("feed");
+      return "alerts.json";
+    }
+    function setStatus(msg, ok=true){ const el = document.getElementById("feedStatus"); el.textContent = msg; el.style.color = ok ? "#cfe0ff" : "#ff8ea0"; }
+    function setLastSync(dt){ document.getElementById("lastSync").textContent = new Intl.DateTimeFormat("en-IN",{dateStyle:"medium", timeStyle:"short", timeZone:TZ}).format(dt); }
+
+    // Prefill date/time
+    (function(){
+      const now = new Date(); const p = formatISTParts(now);
+      document.getElementById("date").value = `${p.y}-${p.m}-${p.d}`;
+      document.getElementById("time").value = `${p.hh}:${p.mm}`;
+      document.getElementById("feedLabel").textContent = feedUrl;
+      document.getElementById("refreshLabel").textContent = REFRESH_MINS;
+      render(); // show cached
+      syncFromFeed(); // then fetch
+      refreshTimer = setInterval(syncFromFeed, REFRESH_MINS*60*1000);
+    })();
+
+    async function syncFromFeed(){
+      setStatus("Syncing…");
+      try {
+        const res = await fetch(feedUrl, { cache:"no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const json = await res.json();
+        const items = Array.isArray(json) ? json : (Array.isArray(json.items) ? json.items : []);
+        const byId = new Map(data.map(x => [x.id || (x.title+'|'+x.sentAt), x]));
+        for (const it of items) {
+          if (!it || !it.title || !it.sentAt) continue;
+          const key = it.id || (it.title + "|" + it.sentAt);
+          byId.set(key, {
+            id: key,
+            category: it.category || "Company News (8 AM)",
+            companyTopic: it.companyTopic || "",
+            title: String(it.title),
+            summary: it.summary ? String(it.summary) : "",
+            link: it.link || "",
+            sentAt: new Date(it.sentAt).toISOString()
+          });
+        }
+        data = Array.from(byId.values());
+        saveData(data);
+        render();
+        setLastSync(new Date());
+        setStatus("Sync complete.");
+      } catch(err){
+        setStatus("Sync failed: " + err.message, false);
+      }
+    }
+
+    function render(){
+      const items = [...data].sort((a,b)=> new Date(b.sentAt) - new Date(a.sentAt));
+      const tbody = document.getElementById("tbody"); tbody.innerHTML="";
+      let shown = 0, cAll=items.length, cComp=0, cAI=0, cBS=0;
+      for (const it of items){
+        if (it.category==="Company News (8 AM)") cComp++; else if (it.category==="AI/SAP (12 PM)") cAI++; else if (it.category==="Balance Sheet (3 PM)") cBS++;
+        if (currentFilter!=="all" && it.category!==currentFilter) continue;
+        if (searchTerm){
+          const hay = (it.title+" "+(it.summary||"")+" "+(it.companyTopic||"")).toLowerCase();
+          if (!hay.includes(searchTerm.toLowerCase())) continue;
+        }
+        const tr = document.createElement("tr");
+        const dt = new Date(it.sentAt); const p = formatISTParts(dt);
+        tr.innerHTML = `
+          <td>${p.d}-${p.m}-${p.y}</td>
+          <td>${p.hh}:${p.mm}</td>
+          <td><span class="pill">${escapeHtml(it.category||"")}</span></td>
+          <td><div><strong>${escapeHtml(it.title)}</strong></div>${it.summary?`<div class="muted link-wrap">${escapeHtml(it.summary)}</div>`:""}</td>
+          <td>${escapeHtml(it.companyTopic||"—")}</td>
+          <td>${it.link?`<a href="${it.link}" target="_blank" rel="noopener">Open source</a>`:"—"}</td>`;
+        tbody.appendChild(tr);
+        shown++;
+      }
+      document.getElementById("countLabel").textContent = `${shown} item${shown===1?"":"s"}`;
+      document.getElementById("statAll").textContent = cAll;
+      document.getElementById("statComp").textContent = cComp;
+      document.getElementById("statAI").textContent = cAI;
+      document.getElementById("statBS").textContent = cBS;
+    }
+
+    // Events
+    document.getElementById("syncNowBtn").addEventListener("click", syncFromFeed);
+    document.getElementById("addBtn").addEventListener("click", () => {
+      const category = document.getElementById("category").value;
+      const companyTopic = document.getElementById("companyTopic").value.trim();
+      const dateStr = document.getElementById("date").value;
+      const timeStr = document.getElementById("time").value;
+      const title = document.getElementById("title").value.trim();
+      const summary = document.getElementById("summary").value.trim();
+      const link = document.getElementById("link").value.trim();
+      if (!title) { alert("Please enter a Title / Headline."); return; }
+      if (!dateStr) { alert("Please choose a Date (IST)."); return; }
+      const dt = parseISTDateTime(dateStr, timeStr || "12:00");
+      data.push({ id: `local-${Date.now()}`, category, companyTopic, title, summary, link, sentAt: dt.toISOString() });
+      saveData(data); render();
+      document.getElementById("title").value=""; document.getElementById("summary").value=""; document.getElementById("link").value="";
+    });
+    document.getElementById("importInput").addEventListener("change", (e)=>{
+      const f=e.target.files?.[0]; if(!f) return;
+      const reader=new FileReader();
+      reader.onload=()=>{
+        try{
+          const arr=JSON.parse(reader.result);
+          if(!Array.isArray(arr)) throw new Error("Invalid JSON (must be an array).");
+          const byId=new Map(data.map(x=>[x.id|| (x.title+'|'+x.sentAt), x]));
+          for(const it of arr){ if(it && (it.id || (it.title && it.sentAt))){ const key=it.id||(it.title+'|'+it.sentAt); byId.set(key,it); } }
+          data=Array.from(byId.values()); saveData(data); render(); alert("Import complete.");
+        }catch(err){ alert("Import failed: "+err.message); } finally { e.target.value=""; }
+      };
+      reader.readAsText(f);
+    });
+    document.getElementById("exportBtn").addEventListener("click", ()=>{
+      const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+      const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="alerts-backup.json"; document.body.appendChild(a); a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); },0);
+    });
+    document.getElementById("clearAllBtn").addEventListener("click", ()=>{ if(!confirm("Delete ALL alerts stored locally in this browser?")) return; data=[]; saveData(data); render(); });
+    document.getElementById("search").addEventListener("input",(e)=>{ searchTerm=e.target.value.trim(); render(); });
+    document.getElementById("chipBar").addEventListener("click",(e)=>{ const chip=e.target.closest(".chip"); if(!chip) return; currentFilter=chip.dataset.filter; document.querySelectorAll(".chip").forEach(c=>c.classList.remove("active")); chip.classList.add("active"); render(); });
+  </script>
+</body>
+</html>
