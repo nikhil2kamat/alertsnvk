@@ -1,0 +1,93 @@
+name: Scheduled: pull alerts into alerts.json
+
+on:
+  schedule:
+    # 8:05 AM IST (02:35 UTC)
+    - cron: '35 2 * * *'
+    # 12:05 PM IST (06:35 UTC)
+    - cron: '35 6 * * *'
+    # 3:05 PM IST (09:35 UTC)
+    - cron: '35 9 * * *'
+  workflow_dispatch:
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      FEED_URL_COMPANY: ${{ secrets.FEED_URL_COMPANY }}
+      FEED_URL_AI: ${{ secrets.FEED_URL_AI }}
+      FEED_URL_BS: ${{ secrets.FEED_URL_BS }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install jq & curl
+        run: sudo apt-get update && sudo apt-get install -y jq curl
+
+      - name: Decide which feed to pull based on current UTC hour
+        id: pick
+        run: |
+          set -euo pipefail
+          UTC_HOUR=$(date -u +%H)
+          SLOT="company"
+          if [ "$UTC_HOUR" = "06" ]; then SLOT="ai"; fi
+          if [ "$UTC_HOUR" = "09" ]; then SLOT="bs"; fi
+          echo "slot=${SLOT}" >> $GITHUB_OUTPUT
+
+      - name: Fetch feed JSON
+        id: fetch
+        run: |
+          set -euo pipefail
+          SLOT='${{ steps.pick.outputs.slot }}'
+          URL=""
+          case "$SLOT" in
+            company) URL="${FEED_URL_COMPANY:-}";;
+            ai) URL="${FEED_URL_AI:-}";;
+            bs) URL="${FEED_URL_BS:-}";;
+          esac
+          echo "Slot: $SLOT"
+          if [ -z "$URL" ]; then
+            echo "No URL configured for slot '$SLOT'. Skipping fetch."
+            echo 'items=[]' >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "Fetching: $URL"
+          HTTP_CODE=$(curl -sS -w "%{http_code}" -o feed.json "$URL" || true)
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Fetch failed with HTTP $HTTP_CODE; skipping."
+            echo 'items=[]' >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          if jq -e 'type == "array"' feed.json > /dev/null; then
+            cp feed.json feed_arr.json
+          else
+            jq -c '.items // []' feed.json > feed_arr.json
+          fi
+          echo "items=$(cat feed_arr.json | jq -c .)" >> $GITHUB_OUTPUT
+
+      - name: Merge into alerts.json
+        run: |
+          set -euo pipefail
+          if [ -f alerts.json ]; then cp alerts.json old.json; else echo '[]' > old.json; fi
+          echo '${{ steps.fetch.outputs.items }}' > new_arr.json
+          jq -s '
+            def keyfn: ( .id // ( (.title // "") + "|" + (.sentAt // "") ) );
+            def to_map: map( {(keyfn): .} ) | add;
+            (.[0] | to_map) as $old
+            | (.[1] | to_map) as $new
+            | ($old + $new) | to_entries | map(.value)
+          ' old.json new_arr.json | jq . > alerts.json
+
+      - name: Commit & push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add alerts.json
+          if git diff --cached --quiet; then
+            echo "No changes."
+          else
+            git commit -m "Scheduled merge: $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git push
+          fi
